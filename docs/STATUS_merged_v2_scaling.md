@@ -84,6 +84,14 @@ Watcher ledger is empty. Remaining training: 16B natural doc_causal only (~9.6k 
 
 ## Open problems
 
+0. **32B balanced doc_causal control is degraded** (held-out +0.36..+0.47 nll vs its
+   cross_doc twin; val worsened during final cooldown 1.645 → 1.678). Both 32B-balanced
+   arms show a mid-run val/train-loss rise at peak LR (42k → 82k); only the cross_doc arm
+   recovered. Suspects: LR 0.003 too hot at 32B length on the repeated-epoch balanced mix,
+   and/or doc_causal memorizing repeated windows (epochs-to-degradation hypothesis). Next
+   step, if wanted: `eval/memorization.py` probe on run_20260913_113517 (dc) vs
+   run_20260905_052254 (cdl), and/or a 32B-balanced doc_causal rerun at muon_lr 0.002.
+
 1. **Yield churn.** The watcher cancels youngest-first whenever any other job pends on
    Resources/Priority and relaunches after 30 idle minutes; each cycle costs ~25-40 min
    compile/resume plus up to 1000 lost steps (`save_latest_interval: 1000`). Accepted;

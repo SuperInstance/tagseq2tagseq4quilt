@@ -121,8 +121,11 @@ example pools, so those ratios are indicative not exact. doc_causal-arm control 
   match what training exploited, or attending to linked articles genuinely distracts.
   Check grant construction before the paper leans on wiki.
 - The 8B and 16B-natural cross_doc rows are the Aug 13 repo-local runs (same fixed recipe,
-  three weeks older than the Sept 5 clean-stop batch); the doc_causal twins for 16B/32B are
-  still training, so the within-pair table stops at the div tiers.
+  three weeks older than the Sept 5 clean-stop batch). The 16B-natural doc_causal control is
+  still training.
+- Both 32B-balanced arms degraded mid-run at peak LR and only the cross_doc arm recovered;
+  see the within-pair section. LR/WD were never retuned above 3.9B, and the balanced mix
+  repeats small sources up to 4×. Any 32B-balanced claim carries that caveat.
 
 ## Held-out perplexity (base-LM-quality axis) — final annealed checkpoints
 
@@ -207,9 +210,27 @@ it (stack 1.53 at div3 → 1.61 at div11, arxiv 2.74 → 3.05). Unseen sources a
 | dart | -0.008 | -0.018 | -0.016 | -0.015 | -0.034 | +0.004 | — | +0.361 | -0.006 |
 
 Training with the cross-doc mask neither helps nor hurts isolated-doc LM quality: every
-source is within ±0.02 nll of its doc_causal twin at 3.9B, at every div tier, and at 16B
-and 32B under both mixes. The larger div3/div5 wiki gaps are on a source those tiers never
-trained on.
+source is within ±0.03 nll of its doc_causal twin at 3.9B, at every div tier, at 16B
+balanced, and at 32B natural. The larger div3/div5 wiki gaps are on a source those tiers
+never trained on.
+
+**32B balanced is NOT a clean pair.** Its doc_causal control is +0.36 to +0.47 nll worse
+than the cross_doc twin on every source and worse than the 3.9B and 16B-balanced controls
+(stack 1.68 vs 1.60 / 1.51). Its checkpoint history shows a mid-run degradation shared with
+the balanced cross_doc arm (val 1.62 at 42k → 1.86–1.92 through 67k–82k, train loss rising
+4.13 → 4.55 at peak LR) from which the cross_doc arm recovered fully in cooldown (val
+1.27, train 3.17) while the doc_causal arm recovered only partially (val 1.65 at 106k, then
+worsening to 1.68 by the end; train 4.04). The natural-mix controls at 32B show no such
+episode (val monotone 1.83 → 1.37). Candidate causes, not yet separated: (a) the peak LR
+(0.003, fixed across rungs) is too hot for the 32B schedule and the balanced mix's repeated
+small sources (wiki/go/java/zig/dart at 4 epochs, rust 3, kotlin 2) amplify it, with
+doc_causal replaying near-identical windows each epoch while cross_doc re-packs them; (b) a
+data-repeat memorization effect that cross_doc tolerates and doc_causal does not, which is
+the hypothesis of the epochs-to-degradation experiment. Both predict exactly this pattern;
+a memorization probe on the two 32B-balanced checkpoints would separate them. Until then the
+32B-balanced column is reported but excluded from the "cross-doc training is free"
+claim, and the balanced cross_doc arm's own mid-run dip means its final numbers should be
+read as recovered-after-degradation, not as a clean run.
 
 ### 8B concat variants (doceval) vs the 8B cross_doc arm
 
