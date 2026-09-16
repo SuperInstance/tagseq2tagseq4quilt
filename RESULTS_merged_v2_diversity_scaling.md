@@ -173,26 +173,43 @@ Fewer domains sharing the same budget means more tokens per seen source and a be
 it (stack 1.53 at div3 → 1.61 at div11, arxiv 2.74 → 3.05). Unseen sources are far worse
 (starred), which is why their port Δ above is not cross-doc evidence.
 
+### doc_causal controls, held-out nll (doceval)
+
+| source | 3.9B | 16B-bal | 16B-nat | 32B-bal | 32B-nat |
+|---|---|---|---|---|---|
+| wiki | 1.497 | 1.451 | — | 1.465 | 1.484 |
+| arxiv | 3.031 | 2.803 | — | 3.098 | 2.386 |
+| stack | 1.600 | 1.506 | — | 1.684 | 1.296 |
+| typescript | 1.672 | 1.568 | — | 1.739 | 1.376 |
+| javascript | 1.558 | 1.467 | — | 1.629 | 1.282 |
+| kotlin | 1.501 | 1.414 | — | 1.573 | 1.256 |
+| rust | 1.431 | 1.348 | — | 1.511 | 1.249 |
+| go | 1.649 | 1.550 | — | 1.757 | 1.454 |
+| java | 1.454 | 1.369 | — | 1.543 | 1.282 |
+| zig | 1.449 | 1.367 | — | 1.645 | 1.328 |
+| dart | 1.395 | 1.323 | — | 1.526 | 1.271 |
+
+
 ### Within-pair held-out nll: doc_causal − cross_doc (isolated-doc scoring)
 
-| source | 3.9B | div3 | div5 | div7 | div9 |
-|---|---|---|---|---|---|
-| wiki | +0.003 | +0.126 | +0.377 | +0.013 | +0.001 |
-| arxiv | -0.015 | +0.001 | +0.002 | -0.009 | +0.002 |
-| stack | -0.007 | +0.010 | +0.001 | -0.005 | +0.004 |
-| typescript | -0.003 | +0.006 | +0.010 | -0.002 | +0.007 |
-| javascript | -0.006 | +0.009 | +0.001 | +0.002 | +0.003 |
-| kotlin | -0.005 | -0.059 | +0.015 | +0.009 | +0.012 |
-| rust | -0.008 | -0.054 | -0.044 | -0.005 | +0.006 |
-| go | -0.009 | -0.011 | -0.010 | -0.029 | +0.003 |
-| java | -0.002 | -0.039 | -0.007 | -0.002 | +0.009 |
-| zig | -0.012 | -0.003 | -0.003 | -0.007 | -0.011 |
-| dart | -0.008 | -0.018 | -0.016 | -0.015 | -0.034 |
+| source | 3.9B | div3 | div5 | div7 | div9 | 16B-bal | 16B-nat | 32B-bal | 32B-nat |
+|---|---|---|---|---|---|---|---|---|---|
+| wiki | +0.003 | +0.126 | +0.377 | +0.013 | +0.001 | -0.029 | — | +0.155 | +0.054 |
+| arxiv | -0.015 | +0.001 | +0.002 | -0.009 | +0.002 | -0.016 | — | +0.677 | +0.006 |
+| stack | -0.007 | +0.010 | +0.001 | -0.005 | +0.004 | -0.003 | — | +0.397 | -0.000 |
+| typescript | -0.003 | +0.006 | +0.010 | -0.002 | +0.007 | +0.001 | — | +0.375 | -0.002 |
+| javascript | -0.006 | +0.009 | +0.001 | +0.002 | +0.003 | -0.002 | — | +0.354 | +0.002 |
+| kotlin | -0.005 | -0.059 | +0.015 | +0.009 | +0.012 | +0.002 | — | +0.421 | +0.003 |
+| rust | -0.008 | -0.054 | -0.044 | -0.005 | +0.006 | -0.003 | — | +0.352 | +0.002 |
+| go | -0.009 | -0.011 | -0.010 | -0.029 | +0.003 | -0.005 | — | +0.421 | -0.005 |
+| java | -0.002 | -0.039 | -0.007 | -0.002 | +0.009 | -0.002 | — | +0.359 | -0.005 |
+| zig | -0.012 | -0.003 | -0.003 | -0.007 | -0.011 | -0.005 | — | +0.468 | -0.009 |
+| dart | -0.008 | -0.018 | -0.016 | -0.015 | -0.034 | +0.004 | — | +0.361 | -0.006 |
 
-Training with the cross-doc mask neither helps nor hurts isolated-doc LM quality: at 3.9B
-every source is within ±0.015 nll of its doc_causal twin. The larger div3/div5 wiki gaps
-are on a source those tiers never trained on. (Pairs for 16B/32B follow when the
-doc_causal controls finish.)
+Training with the cross-doc mask neither helps nor hurts isolated-doc LM quality: every
+source is within ±0.02 nll of its doc_causal twin at 3.9B, at every div tier, and at 16B
+and 32B under both mixes. The larger div3/div5 wiki gaps are on a source those tiers never
+trained on.
 
 ### 8B concat variants (doceval) vs the 8B cross_doc arm
 
