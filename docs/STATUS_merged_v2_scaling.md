@@ -22,14 +22,14 @@ Final = trained to data exhaustion under the clean-stop code (final val + final 
 | 8B | cross_doc | 30000 | repo-local runs/run_20260813_144916_125137 | yes | yes |
 | 8B | concat / concat_link | 30335 / 30336 | run_20260905_095922_217348 / run_20260906_110220_009287 | yes / yes | n/a |
 | 16B natural | cross_doc | 60600 | repo-local runs/run_20260813_182257_104861 | yes | yes |
-| 16B natural | doc_causal | fresh, 0 / 60600 | RUNNING job 87330 (run_20260908_151850_764779) | — | n/a |
+| 16B natural | doc_causal | 51000 / 60600 | RUNNING job 97490 (GPU-445), lineage run_20260908_151850 | — | n/a |
 | 16B natural | concat / concat_link | — | lineages dead since Aug 26, not relaunched | — | — |
 | 16B balanced | cross_doc | 60733 | run_20260905_093303_660287 | yes | yes |
-| 16B balanced | doc_causal | 44000 / 60750 | RUNNING job 87028 (GPU-613), lineage run_20260905_062243 | — | n/a |
+| 16B balanced | doc_causal | 60729 | run_20260913_173155_175036 | yes | n/a |
 | 32B balanced | cross_doc | 120864 | run_20260905_052254_667822 | yes | yes |
-| 32B balanced | doc_causal | 92000 / 120888 | RUNNING job 87008 (GPU-302) | — | n/a |
+| 32B balanced | doc_causal | 120856 | run_20260913_113517_610110 | yes | n/a |
 | 32B natural | cross_doc | 119877 | run_20260905_063449_204090 | yes | yes |
-| 32B natural | doc_causal | 71000 / 119901 | RUNNING job 87018 (GPU-689) | — | n/a |
+| 32B natural | doc_causal | 119875 | run_20260915_164936_580305 | yes | n/a |
 
 Port evals: `scripts/eval_ports_slurm.sh <label> <run_dir>` (one node, 13 ports, ~27 min)
 writes `<run_dir>/port_eval/<port>__use_line.json`; all cross_doc arms are ported.
@@ -46,15 +46,14 @@ regenerated offline with `eval_checkpoints.py` if needed.
 
 ## Queue
 
-Watcher ledger is empty. Remaining training: four doc_causal controls (32B balanced
-~29k steps, 32B natural ~49k, 16B balanced ~17k, 16B natural 60600 from scratch), all at
-~5.3 s/step, all subject to yield churn.
+Watcher ledger is empty. Remaining training: 16B natural doc_causal only (~9.6k steps at
+~5.3 s/step, ~14 h uninterrupted; subject to yield churn).
 
 ## Next manual steps
 
-1. When a doc_causal control finishes, run
-   `scripts/eval_by_source_slurm.sh <label> <final run dir> dc` and add its column to the
-   within-pair table in RESULTS (16B balanced, 32B balanced, 32B natural, 16B natural).
+1. When 16B natural doc_causal finishes, run
+   `scripts/eval_by_source_slurm.sh 16b_nat_dc <final run dir> dc` and add its column to the
+   within-pair table in RESULTS (16B balanced, 32B balanced, 32B natural columns are in).
    The `write_heldout.py`-style table builder reads `<run>/eval_by_source/*.json`
    (keys `held_out_perplexity/<cond>`, field `mean_nll`).
 2. Follow-ups that would harden the paper claims (see RESULTS "Interpretation"):
