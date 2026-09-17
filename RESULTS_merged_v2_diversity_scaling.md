@@ -98,9 +98,10 @@ example pools, so those ratios are indicative not exact. doc_causal-arm control 
 - Cross-doc training is free on the LM axis: doc_causal − cross_doc held-out nll is within
   ±0.015 on every source at 3.9B and every div tier. concat without the mask is the worst
   LM on every source, so the mask does the work, not the packing.
-- Balance is a base-LM lever, not a mechanism lever: balanced mixing is the better LM on
-  the small sources it up-weights (32B zig 1.18 vs 1.34, dart 1.17 vs 1.28) with no
-  difference in Δ.
+- The token-scaling line is one recipe, equal per-source split with no source repeated:
+  at 3.9B and 8B every source has enough data for its equal share; above 8B the small
+  sources cap at one epoch and the remainder goes to the large sources (the "natural" mix).
+  3.9B → 8B → 16B natural → 32B natural is that line.
 - The defensible headline is transfer and sample efficiency, not scaling: one model
   trained jointly on 11 link types matches or beats single-language specialists on 9/13
   cross-doc ports at 1/11 of the per-language tokens, at no perplexity cost. "Effect
@@ -123,9 +124,11 @@ example pools, so those ratios are indicative not exact. doc_causal-arm control 
 - The 8B and 16B-natural cross_doc rows are the Aug 13 repo-local runs (same fixed recipe,
   three weeks older than the Sept 5 clean-stop batch); all four 16B/32B doc_causal controls
   are complete and evaluated.
-- Both 32B-balanced arms degraded mid-run at peak LR and only the cross_doc arm recovered;
-  see the within-pair section. LR/WD were never retuned above 3.9B, and the balanced mix
-  repeats small sources up to 4×. Any 32B-balanced claim carries that caveat.
+- Balanced mix (small sources repeated up to 4× to hold an equal split): both 32B arms
+  showed a mid-run loss rise at peak LR and the doc_causal control never recovered. Likely a
+  problem, whether a bug or the shared LR; it stays in the provenance data and in the tables
+  here but is removed from paper discussion, since it was not necessary for the finding in
+  question. Paper mention: one footnote/limitation sentence, nothing more.
 
 ## Held-out perplexity (base-LM-quality axis) — final annealed checkpoints
 

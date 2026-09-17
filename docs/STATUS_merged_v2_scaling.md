@@ -52,9 +52,10 @@ port evals).
 
 ## Next manual steps
 
-1. Figure for the balanced-vs-natural question: https://claude.ai/artifact/MMufcZisK6jCtJa2VaTkpZ
-   (val trajectories, final held-out per source, port Δ dumbbells). Recommendation recorded
-   there and in RESULTS: natural line primary, balanced as the repetition ablation.
+1. Decision: the paper's scaling line is natural only (equal split, no source repeated:
+   3.9B, 8B, 16B natural, 32B natural). Balanced is relegated to a footnote (likely a
+   problem, bug or LR; kept in provenance data, removed from paper discussion as not
+   necessary for the finding). Figure: https://claude.ai/artifact/MMufcZisK6jCtJa2VaTkpZ
 2. Follow-ups that would harden the paper claims (see RESULTS "Interpretation"):
    two extra seeds of 3.9B cross_doc; specialists re-ported through
    `scripts/eval_ports_slurm.sh` with flat nll; wiki community-pack grant check.
@@ -83,7 +84,7 @@ port evals).
 
 ## Open problems
 
-0. **32B balanced doc_causal control is degraded** (held-out +0.36..+0.47 nll vs its
+0. **32B balanced doc_causal control is degraded** (footnote-only in the paper; see decision above) (held-out +0.36..+0.47 nll vs its
    cross_doc twin; val worsened during final cooldown 1.645 → 1.678). Both 32B-balanced
    arms show a mid-run val/train-loss rise at peak LR (42k → 82k); only the cross_doc arm
    recovered. Suspects: LR 0.003 too hot at 32B length on the repeated-epoch balanced mix,
