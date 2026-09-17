@@ -22,7 +22,7 @@ Final = trained to data exhaustion under the clean-stop code (final val + final 
 | 8B | cross_doc | 30000 | repo-local runs/run_20260813_144916_125137 | yes | yes |
 | 8B | concat / concat_link | 30335 / 30336 | run_20260905_095922_217348 / run_20260906_110220_009287 | yes / yes | n/a |
 | 16B natural | cross_doc | 60600 | repo-local runs/run_20260813_182257_104861 | yes | yes |
-| 16B natural | doc_causal | 51000 / 60600 | RUNNING job 97490 (GPU-445), lineage run_20260908_151850 | — | n/a |
+| 16B natural | doc_causal | 60600 | run_20260915_164941_913401 | yes | n/a |
 | 16B natural | concat / concat_link | — | lineages dead since Aug 26, not relaunched | — | — |
 | 16B balanced | cross_doc | 60733 | run_20260905_093303_660287 | yes | yes |
 | 16B balanced | doc_causal | 60729 | run_20260913_173155_175036 | yes | n/a |
@@ -46,16 +46,15 @@ regenerated offline with `eval_checkpoints.py` if needed.
 
 ## Queue
 
-Watcher ledger is empty. Remaining training: 16B natural doc_causal only (~9.6k steps at
-~5.3 s/step, ~14 h uninterrupted; subject to yield churn).
+Watcher ledger is empty. No merged_v2 training remains; every arm in the inventory has a
+final checkpoint, and every finished arm has per-source evals (cross_doc arms also have
+port evals).
 
 ## Next manual steps
 
-1. When 16B natural doc_causal finishes, run
-   `scripts/eval_by_source_slurm.sh 16b_nat_dc <final run dir> dc` and add its column to the
-   within-pair table in RESULTS (16B balanced, 32B balanced, 32B natural columns are in).
-   The `write_heldout.py`-style table builder reads `<run>/eval_by_source/*.json`
-   (keys `held_out_perplexity/<cond>`, field `mean_nll`).
+1. Figure for the balanced-vs-natural question: https://claude.ai/artifact/MMufcZisK6jCtJa2VaTkpZ
+   (val trajectories, final held-out per source, port Δ dumbbells). Recommendation recorded
+   there and in RESULTS: natural line primary, balanced as the repetition ablation.
 2. Follow-ups that would harden the paper claims (see RESULTS "Interpretation"):
    two extra seeds of 3.9B cross_doc; specialists re-ported through
    `scripts/eval_ports_slurm.sh` with flat nll; wiki community-pack grant check.

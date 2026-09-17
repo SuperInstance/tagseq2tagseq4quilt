@@ -121,8 +121,8 @@ example pools, so those ratios are indicative not exact. doc_causal-arm control 
   match what training exploited, or attending to linked articles genuinely distracts.
   Check grant construction before the paper leans on wiki.
 - The 8B and 16B-natural cross_doc rows are the Aug 13 repo-local runs (same fixed recipe,
-  three weeks older than the Sept 5 clean-stop batch). The 16B-natural doc_causal control is
-  still training.
+  three weeks older than the Sept 5 clean-stop batch); all four 16B/32B doc_causal controls
+  are complete and evaluated.
 - Both 32B-balanced arms degraded mid-run at peak LR and only the cross_doc arm recovered;
   see the within-pair section. LR/WD were never retuned above 3.9B, and the balanced mix
   repeats small sources up to 4×. Any 32B-balanced claim carries that caveat.
@@ -180,38 +180,38 @@ it (stack 1.53 at div3 → 1.61 at div11, arxiv 2.74 → 3.05). Unseen sources a
 
 | source | 3.9B | 16B-bal | 16B-nat | 32B-bal | 32B-nat |
 |---|---|---|---|---|---|
-| wiki | 1.497 | 1.451 | — | 1.465 | 1.484 |
-| arxiv | 3.031 | 2.803 | — | 3.098 | 2.386 |
-| stack | 1.600 | 1.506 | — | 1.684 | 1.296 |
-| typescript | 1.672 | 1.568 | — | 1.739 | 1.376 |
-| javascript | 1.558 | 1.467 | — | 1.629 | 1.282 |
-| kotlin | 1.501 | 1.414 | — | 1.573 | 1.256 |
-| rust | 1.431 | 1.348 | — | 1.511 | 1.249 |
-| go | 1.649 | 1.550 | — | 1.757 | 1.454 |
-| java | 1.454 | 1.369 | — | 1.543 | 1.282 |
-| zig | 1.449 | 1.367 | — | 1.645 | 1.328 |
-| dart | 1.395 | 1.323 | — | 1.526 | 1.271 |
+| wiki | 1.497 | 1.451 | 1.442 | 1.465 | 1.484 |
+| arxiv | 3.031 | 2.803 | 2.599 | 3.098 | 2.386 |
+| stack | 1.600 | 1.506 | 1.364 | 1.684 | 1.296 |
+| typescript | 1.672 | 1.568 | 1.429 | 1.739 | 1.376 |
+| javascript | 1.558 | 1.467 | 1.331 | 1.629 | 1.282 |
+| kotlin | 1.501 | 1.414 | 1.250 | 1.573 | 1.256 |
+| rust | 1.431 | 1.348 | 1.258 | 1.511 | 1.249 |
+| go | 1.649 | 1.550 | 1.478 | 1.757 | 1.454 |
+| java | 1.454 | 1.369 | 1.304 | 1.543 | 1.282 |
+| zig | 1.449 | 1.367 | 1.337 | 1.645 | 1.328 |
+| dart | 1.395 | 1.323 | 1.282 | 1.526 | 1.271 |
 
 
 ### Within-pair held-out nll: doc_causal − cross_doc (isolated-doc scoring)
 
 | source | 3.9B | div3 | div5 | div7 | div9 | 16B-bal | 16B-nat | 32B-bal | 32B-nat |
 |---|---|---|---|---|---|---|---|---|---|
-| wiki | +0.003 | +0.126 | +0.377 | +0.013 | +0.001 | -0.029 | — | +0.155 | +0.054 |
-| arxiv | -0.015 | +0.001 | +0.002 | -0.009 | +0.002 | -0.016 | — | +0.677 | +0.006 |
-| stack | -0.007 | +0.010 | +0.001 | -0.005 | +0.004 | -0.003 | — | +0.397 | -0.000 |
-| typescript | -0.003 | +0.006 | +0.010 | -0.002 | +0.007 | +0.001 | — | +0.375 | -0.002 |
-| javascript | -0.006 | +0.009 | +0.001 | +0.002 | +0.003 | -0.002 | — | +0.354 | +0.002 |
-| kotlin | -0.005 | -0.059 | +0.015 | +0.009 | +0.012 | +0.002 | — | +0.421 | +0.003 |
-| rust | -0.008 | -0.054 | -0.044 | -0.005 | +0.006 | -0.003 | — | +0.352 | +0.002 |
-| go | -0.009 | -0.011 | -0.010 | -0.029 | +0.003 | -0.005 | — | +0.421 | -0.005 |
-| java | -0.002 | -0.039 | -0.007 | -0.002 | +0.009 | -0.002 | — | +0.359 | -0.005 |
-| zig | -0.012 | -0.003 | -0.003 | -0.007 | -0.011 | -0.005 | — | +0.468 | -0.009 |
-| dart | -0.008 | -0.018 | -0.016 | -0.015 | -0.034 | +0.004 | — | +0.361 | -0.006 |
+| wiki | +0.003 | +0.126 | +0.377 | +0.013 | +0.001 | -0.029 | -0.002 | +0.155 | +0.054 |
+| arxiv | -0.015 | +0.001 | +0.002 | -0.009 | +0.002 | -0.016 | -0.029 | +0.677 | +0.006 |
+| stack | -0.007 | +0.010 | +0.001 | -0.005 | +0.004 | -0.003 | -0.019 | +0.397 | -0.000 |
+| typescript | -0.003 | +0.006 | +0.010 | -0.002 | +0.007 | +0.001 | -0.014 | +0.375 | -0.002 |
+| javascript | -0.006 | +0.009 | +0.001 | +0.002 | +0.003 | -0.002 | -0.015 | +0.354 | +0.002 |
+| kotlin | -0.005 | -0.059 | +0.015 | +0.009 | +0.012 | +0.002 | -0.008 | +0.421 | +0.003 |
+| rust | -0.008 | -0.054 | -0.044 | -0.005 | +0.006 | -0.003 | -0.019 | +0.352 | +0.002 |
+| go | -0.009 | -0.011 | -0.010 | -0.029 | +0.003 | -0.005 | -0.023 | +0.421 | -0.005 |
+| java | -0.002 | -0.039 | -0.007 | -0.002 | +0.009 | -0.002 | -0.016 | +0.359 | -0.005 |
+| zig | -0.012 | -0.003 | -0.003 | -0.007 | -0.011 | -0.005 | -0.012 | +0.468 | -0.009 |
+| dart | -0.008 | -0.018 | -0.016 | -0.015 | -0.034 | +0.004 | -0.015 | +0.361 | -0.006 |
 
 Training with the cross-doc mask neither helps nor hurts isolated-doc LM quality: every
-source is within ±0.03 nll of its doc_causal twin at 3.9B, at every div tier, at 16B
-balanced, and at 32B natural. The larger div3/div5 wiki gaps are on a source those tiers
+source is within ±0.03 nll of its doc_causal twin at 3.9B, at every div tier, at 16B under
+both mixes, and at 32B natural. The larger div3/div5 wiki gaps are on a source those tiers
 never trained on.
 
 **32B balanced is NOT a clean pair.** Its doc_causal control is +0.36 to +0.47 nll worse
@@ -220,17 +220,17 @@ than the cross_doc twin on every source and worse than the 3.9B and 16B-balanced
 the balanced cross_doc arm (val 1.62 at 42k → 1.86–1.92 through 67k–82k, train loss rising
 4.13 → 4.55 at peak LR) from which the cross_doc arm recovered fully in cooldown (val
 1.27, train 3.17) while the doc_causal arm recovered only partially (val 1.65 at 106k, then
-worsening to 1.68 by the end; train 4.04). The natural-mix controls at 32B show no such
-episode (val monotone 1.83 → 1.37). Candidate causes, not yet separated: (a) the peak LR
-(0.003, fixed across rungs) is too hot for the 32B schedule and the balanced mix's repeated
-small sources (wiki/go/java/zig/dart at 4 epochs, rust 3, kotlin 2) amplify it, with
-doc_causal replaying near-identical windows each epoch while cross_doc re-packs them; (b) a
-data-repeat memorization effect that cross_doc tolerates and doc_causal does not, which is
-the hypothesis of the epochs-to-degradation experiment. Both predict exactly this pattern;
-a memorization probe on the two 32B-balanced checkpoints would separate them. Until then the
-32B-balanced column is reported but excluded from the "cross-doc training is free"
-claim, and the balanced cross_doc arm's own mid-run dip means its final numbers should be
-read as recovered-after-degradation, not as a clean run.
+worsening to 1.68 by the end; train 4.04). The natural-mix controls at 16B and 32B show no
+such episode (32B val monotone 1.83 → 1.37). Candidate causes, not yet separated: (a) the
+peak LR (0.003, fixed across rungs) is too hot for the 32B schedule and the balanced mix's
+repeated small sources (wiki/go/java/zig/dart at 4 epochs, rust 3, kotlin 2) amplify it,
+with doc_causal replaying near-identical windows each epoch while cross_doc re-packs them;
+(b) a data-repeat memorization effect that cross_doc tolerates and doc_causal does not,
+which is the hypothesis of the epochs-to-degradation experiment. Both predict exactly this
+pattern; a memorization probe on the two 32B-balanced checkpoints would separate them.
+Until then the 32B-balanced column is reported but excluded from the "cross-doc training
+is free" claim, and the balanced cross_doc arm's own mid-run dip means its final numbers
+should be read as recovered-after-degradation, not as a clean run.
 
 ### 8B concat variants (doceval) vs the 8B cross_doc arm
 
