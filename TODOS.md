@@ -6,6 +6,40 @@ Remaining work, organized by area. All completed items stripped.
 
 ## Paper — cluster-reliant items (filed 2026-08-23)
 
+### Contribution-isolating contrast exists at one rung only
+The framing in `paper/notes/synthesis_framing_notes.md` makes the number that isolates
+this work's contribution the residual `cross_doc_link − doc_concat_link` at matched
+FLOPs, not `cross_doc_link − doc_causal`. Concat and concat_link arms exist only at the
+8B rung (`RESULTS_merged_v2_diversity_scaling.md` §"8B concat variants"); the 16B natural
+concat lineages died and were never relaunched. So the comparison the paper leans on for
+rigor rests on a single rung, and "is it the links or just more context tokens?" is
+formally unanswered everywhere else. Either run concat pairs at a second rung or state
+the single-rung limitation explicitly.
+
+### The retracted headline still leads the merged_v2 results doc
+`RESULTS_merged_v2_diversity_scaling.md` opens with the merged_all_v2 "beats specialists
+1.7-11x" section behind a supersede banner. That family was retracted for the
+sequential-not-interleaved dataloader bug. A reader going top-down meets dead numbers
+first. Remove it or move it to an appendix of retracted results.
+
+### Ledger `expected:` values hide eval drift
+`check_grounding.py` compares against `expected:` in `provenance/ledger.yaml`, so a number
+that drifted still passes. The four `compute.repobench_ppl.*` entries are the live example.
+Decide whether `expected:` should be regenerated on every distill, or whether drift should
+be reported rather than silently accepted.
+
+### Paper buildability is unverified
+No LaTeX toolchain exists on the cluster, so the draft has never been compiled here. Build
+it elsewhere once before relying on it. Also: 16 `singledoc.*.ci` keys are defined in
+`generated/values.tex` and cited nowhere.
+
+### DistrProp figure (proposed, never filed)
+`paper/notes/synthesis_framing_notes.md` proposes computing the attention-mass-on-irrelevant-
+preceding-document metric from the literature on `doc_concatenated` against `cross_doc_link`.
+It would show directly that the mask converts diffuse cross-document attention into targeted
+attention. Described there as cheap and publishable.
+
+
 Everything here needs `/fss-data` (run dirs, artifacts, or GPUs). The paper's prose is
 written against these being resolved; each maps to a `\fillin{}` / LaTeX comment in
 `paper/sections/`. Run `python scripts/check_grounding.py` after any of them.
@@ -407,6 +441,19 @@ single-repo corpus for real code retrieval. Detection is DONE; this is resolutio
 
 ## Training
 
+### Most configs still set the dead `train_loop.warmup_steps`
+Warmup is a fraction of the schedule now. Configs carrying only the old key raise on launch
+rather than silently training with no warmup, but roughly 215 of them need the one-line swap
+before reuse.
+
+### Watcher can lose a run silently, and its resumes were never re-audited
+A yielded job whose cancel return code is swallowed never reaches `yielded_jobs.tsv` and so
+never auto-resumes; the live log shows the related failure as a job that cannot be mapped
+back to its run directory. Separately, resume correctness was verified once in August, before
+roughly 60 yield-and-resume cycles, and an earlier watcher bug caused 120 silent full resets
+against 163 real resumes, so pre-September trajectories contain restarted-from-zero segments.
+
+
 ### Retune LR / schedule for this dataset scale (before next ablation run)
 Current optimizer/schedule values (muon_lr, adamw_lr, warmup, cooldown_frac,
 total_steps) are inherited from ../ModdedNanoGPT, which tunes for how much a
@@ -456,6 +503,52 @@ bottleneck.
 ---
 
 ## Eval
+
+### Quarantine the contaminated eval sidecars
+`scripts/rerun/` holds a reversible quarantine for the old in-repo `eval_results.json` and
+`eval/` sidecars (239 paths, 31 MB). Its ordering constraint is satisfied now that the
+re-attaching distiller is on main. Gated on the RepoBench decision above, since that
+determines which numbers the paper keeps.
+
+### Noise floor: two extra seeds at the 3.9B cross_doc rung
+Every ladder rung is a single seed, and the headline is that the cross-doc delta is *flat*
+across eight times the tokens. `RESULTS_merged_v2_diversity_scaling.md` concedes a
+0.03-0.05 wobble and then dismisses a +0.43 outlier as noise after the fact. Two more seeds
+at the cheapest rung turn an assertion into a measurement. Highest-value unfunded compute.
+
+### Re-port the specialists with flat nll
+The "matches or beats specialists on 9 of 13 ports" count draws specialist numbers from a
+different lineage and harness, and counts three ties as wins. Re-run them through
+`scripts/eval_ports_slurm.sh` on the current path before the claim goes in the paper.
+
+### Memorization probe on the two degraded 32B-balanced checkpoints
+Both 32B-balanced arms degraded mid-run at peak LR and only the cross_doc arm recovered, so
+that pair is excluded from the zero-cost claim. The two candidate causes, too-hot LR against
+a data-repeat memorization effect, predict the same loss curve. `eval/memorization.py` on the
+matched pair separates them, eval only. The pair is `run_20260913_113517_610110` (doc_causal)
+against `run_20260905_052254_667822` (cross_doc_link), both 120888 steps at muon_lr 0.003.
+Pass the same `--layout-policy` to both or the comparison is confounded.
+
+### Composite link detector for benchmarks and generation
+Train and val use graph-ground-truth grants. Benchmarks and generation need detection when
+links are not known ahead of time, which was designed and never built. Blocks any
+measurement of native corpus-fetching generation.
+
+### `invisible_check` should be a gate, not a report field
+The aux-invisible-under-doc_causal check is what demonstrates the mask taxonomy is real. It
+currently exists only as a number in a report. Make it a standing assertion so a regression
+in the masking cannot pass silently.
+
+### Paired-n leak in the link-injection harness
+Roughly 10 of 40 items returned nothing for the grant cell because
+`score_completion_with_context_docs` re-detects the link at scoring time and sometimes misses
+the one the annotator injected. Silent sample-size loss on one arm of a paired comparison.
+
+### Completion evals are missing for four cross_doc arms
+NCCL timeouts on the on-completion eval left no `eval_results.json` for the 3.9B, div3, div5
+and div9 cross_doc arms. Their held-out numbers come from the offline by-source path instead,
+so those rows have a different provenance from the rest of the table.
+
 
 ### RepoBench cannot compare mask types; the compute-control table rests on it (filed 2026-09-21)
 `run_repobench` scores every model under `mask_type='doc_causal'`

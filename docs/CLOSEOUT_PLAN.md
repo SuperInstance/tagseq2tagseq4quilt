@@ -160,7 +160,32 @@ community-pack grant check.
 
 ---
 
-## 6. Housekeeping
+## 6. Backlog hygiene
+
+`TODOS.md` now carries the items that previously lived only in the status docs. It also
+still carries work that is finished. These sections are verified complete or superseded
+and can be struck; the evidence is a merged PR, a results table or the code itself:
+
+wiki community_pack audit · merge-all-datasets diversity scaling · edge-dropout density
+line · TheStack other languages · Stack Python link resolution · merged composite link
+resolution · retune LR and schedule · train the ablation matrix · integrate easy LLM
+benchmarks · synthetic intra-repo benchmark · create Go/Java benchmarks · self-built
+benchmark from test_community · better multi-language benchmark · link injection eval for
+external benchmarks · resume latent bugs.
+
+Superseded rather than done: the diversity section's blocker is cleared, the batch-size
+sweep was self-deferring, and two bullets inside the cross-doc port follow-ups are dead
+(the Kotlin sample-size raise is impossible against a capped public pool, and the Go
+adapter was removed).
+
+One is genuinely unclear: the short LR check at the 16B rung. Sweep configs exist and an
+audit ran, but the results doc still says LR and weight decay were never retuned across
+rungs, and the cross-rung claims rest on that. Worth resolving before the paper cites
+cross-rung deltas.
+
+Recovered reasoning from the unopenable sessions is in `docs/EVAL_DECISIONS.md`.
+
+## 7. Housekeeping
 
 - The in-repo `runs/` directory is 2.5 TB and nothing has been written to it since the move
   to the fss-data runs root. Largest reclaim target by far.
@@ -171,7 +196,7 @@ community-pack grant check.
 
 ---
 
-## 7. Order
+## 8. Order
 
 1. Make the RepoBench call and apply it. Run the quarantine.
 2. Launch 4a and 4b. Wind the learning-rate sweep down to what still answers 4d.
