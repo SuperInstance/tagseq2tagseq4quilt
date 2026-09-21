@@ -18,6 +18,23 @@ TAGSeq2TAGSeq exploits this structure in two ways:
 
 ---
 
+## Quilt Fabric (quilt-ecosystem adaptation)
+
+This fork adds a quilt-native layer: documents become **cells** on integer
+addresses, hyperlinks become **LINK** receipts, and the cross-document
+attention mask is decided by an integer cellular automaton over the fabric
+— energy diffuses along edges, survival gates attention, and every grant or
+refusal books a hash-chained row any quilt substrate can verify.
+
+```bash
+python -m pytest tests/quilt_fabric/ -q   # 29 tests, stdlib-only
+python demo_quilt_fabric.py --check        # live tamper drill
+```
+
+Full doctrine and pipeline integration: [`docs/QUILT_FABRIC.md`](docs/QUILT_FABRIC.md).
+
+---
+
 ## Attention Masks
 
 The attention pattern is the heart of the method. The four conditions below are
