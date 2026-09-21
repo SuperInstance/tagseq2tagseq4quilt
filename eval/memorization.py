@@ -54,7 +54,7 @@ import torch
 
 from data.collate import DocSpan
 from data.dataset import GraphIndex, PretokShardedBackend
-from data.layout import DocLayoutInfo, DocLayoutPolicy
+from data.layout import DocLayoutInfo, DocLayoutPolicy, make_layout_policy
 from eval.perplexity import run_held_out_perplexity
 
 logger = logging.getLogger(__name__)
@@ -384,6 +384,25 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--max-seq-len-override", type=int, default=None)
+    parser.add_argument(
+        "--layout-policy", default=None,
+        choices=["null", "eos", "identifier_prefix", "identifier_prefix_eos",
+                 "stochastic_identifier_prefix", "slash_comment_prefix_eos",
+                 "stochastic_slash_comment_prefix", "latex_comment_prefix",
+                 "stochastic_latex_comment_prefix"],
+        help="Force this layout policy for BOTH train and val scoring, overriding "
+             "the checkpoint's own inference_layout_policy default. Without this, "
+             "each checkpoint falls back to model.active_layout_policy — which a "
+             "config commonly sets DIFFERENTLY per mask_type (e.g. doc_causal="
+             "'eos', cross_doc_link='slash_comment_prefix_eos', see data/layout.py's "
+             "per-language default table). That default is tuned for each mask's "
+             "real multi-doc generation benchmarks, not for this isolated-doc probe "
+             "— using it silently hands one arm's checkpoints a document-identity "
+             "hint the other arm's checkpoints don't get, confounding any cross-arm "
+             "(e.g. doc_causal-vs-cross_doc_link) comparison of gap_nll/verbatim "
+             "recall. Pass the SAME value here for every checkpoint you intend to "
+             "compare head-to-head; 'eos' (no identity hint at all) is the most "
+             "conservative choice.")
     parser.add_argument("--out", default=None, help="Write results JSON here (also printed).")
     args = parser.parse_args()
 
@@ -398,21 +417,33 @@ def main():
 
     model, hp = _build_model(args.checkpoint, args.device, args.max_seq_len_override)
 
+    layout_policy = None
+    if args.layout_policy is not None:
+        import tiktoken
+        enc = tiktoken.get_encoding("gpt2")
+        layout_policy = make_layout_policy(args.layout_policy, encode_fn=enc.encode_ordinary)
+        logger.info("Forcing layout_policy=%s for both train and val scoring "
+                    "(overriding the checkpoint's own inference_layout_policy).",
+                    args.layout_policy)
+
     out: Dict[str, Any] = {
         "checkpoint": str(args.checkpoint),
         "mask_type": hp.get("model", {}).get("mask_type"),
         "train_dir": str(args.train_dir),
         "val_dir": str(args.val_dir),
+        "layout_policy": args.layout_policy or "<checkpoint default>",
     }
 
     if args.mode in ("gap", "both"):
         out["perplexity_gap"] = train_val_gap(
-            model, args.train_dir, args.val_dir, max_docs=args.max_docs,
+            model, args.train_dir, args.val_dir, layout_policy=layout_policy,
+            max_docs=args.max_docs,
             device=args.device, train_split=args.train_split, val_split=args.val_split,
         )
     if args.mode in ("recall", "both"):
         out["verbatim_recall"] = verbatim_recall_gap(
-            model, args.train_dir, args.val_dir, max_docs=args.max_docs,
+            model, args.train_dir, args.val_dir, layout_policy=layout_policy,
+            max_docs=args.max_docs,
             prompt_len=args.prompt_len, gen_len=args.gen_len, device=args.device,
             train_split=args.train_split, val_split=args.val_split, seed=args.seed,
         )

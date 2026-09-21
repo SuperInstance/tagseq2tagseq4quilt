@@ -302,6 +302,64 @@ _gpus_of_job() {
   echo "$g"
 }
 
+# Find the most-advanced checkpoint for this ARM'S WHOLE LINEAGE, not just the one
+# run dir that was just yielded. Every relaunch gets a brand-new run dir, so a run
+# yielded before its own first 250-step checkpoint save has no local latest.pt even
+# when EARLIER segments of the same arm trained for hours. Match candidates by
+# (--config, extra_main_args signature) — the same signature already used to replay
+# overrides on resume — and pick the one whose checkpoint file has the newest mtime
+# (chronologically latest in a strictly-resuming lineage == most trained). Without
+# this, relaunch_yielded silently fell back to a FRESH start, discarding all prior
+# optimizer steps for the arm: found 2026-09-02, ~42% of relaunches sweep-wide hit
+# this (120 silent full resets vs 163 real resumes), go_veoff_cdl alone 30 times.
+latest_lineage_checkpoint() {
+  local cfg="$1" extra="$2"
+  python3 - "$cfg" "$extra" "$REPO/runs" "/fss-data/evin_t/tagseq2tagseq_artifacts/runs" "${TS2TS_RUNS_ROOT:-}" <<'PYEOF' 2>/dev/null
+import sys, os, glob, json
+
+cfg, extra = sys.argv[1], sys.argv[2]
+roots = [r for r in sys.argv[3:] if r]
+
+def sig(argv):
+    out, i = [], 1
+    while i < len(argv):
+        a = argv[i]
+        if a in ("--config", "--resume-from"):
+            i += 2; continue
+        out.append(a); i += 1
+    return " ".join(out)
+
+seen = set()
+best_path, best_mtime = None, -1.0
+for root in roots:
+    for d in glob.glob(os.path.join(root, "run_*")):
+        d = os.path.realpath(d)
+        if d in seen:
+            continue
+        seen.add(d)
+        ck = os.path.join(d, "checkpoints", "latest.pt")
+        if not os.path.isfile(ck):
+            continue
+        inv_glob = glob.glob(os.path.join(d, "reproducibility", "*", "run_invocation.json"))
+        if not inv_glob:
+            continue
+        try:
+            argv = json.load(open(inv_glob[0]))["argv"]
+        except Exception:
+            continue
+        if "--config" not in argv or argv[argv.index("--config") + 1] != cfg:
+            continue
+        if sig(argv) != extra:
+            continue
+        mtime = os.path.getmtime(ck)
+        if mtime > best_mtime:
+            best_mtime, best_path = mtime, ck
+
+if best_path:
+    print(best_path)
+PYEOF
+}
+
 # Relaunch one yielded job on a given clean node, resuming if a checkpoint exists.
 # Returns: 0 = relaunched; 1 = transient failure (retry later); 2 = UNRESOLVABLE
 # (no config anywhere) — caller should mark the ledger line so it stops jamming.
@@ -310,14 +368,17 @@ relaunch_yielded() {
   # Self-heal: if the ledger recorded no config, recover it from run_invocation.json.
   if [ -z "$cfg" ]; then cfg="$(config_from_rundir "$rundir")"; fi
   [ -z "$cfg" ] && { note "  relaunch UNRESOLVABLE ($rundir): no config in ledger or run_invocation.json — marking skipped"; return 2; }
-  local ck="$rundir/checkpoints/latest.pt"
+  # Replay the original invocation's extra overrides (e.g. --data.epoch_dirs) so
+  # resume trains on the SAME data the run was launched with, not the config default,
+  # and so the SAME signature can identify this arm's earlier segments below.
+  local extra; extra="$(extra_main_args "$rundir")"
+  local ck; ck="$(latest_lineage_checkpoint "$cfg" "$extra")"
+  [ -z "$ck" ] && ck="$rundir/checkpoints/latest.pt"   # fallback: this run dir's own
   local resume_args=""
   if [ -f "$ck" ]; then resume_args="--resume-from $ck"; fi
-  # Replay the original invocation's extra overrides (e.g. --data.epoch_dirs) so
-  # resume trains on the SAME data the run was launched with, not the config default.
-  local extra; extra="$(extra_main_args "$rundir")"
   local tag; tag="$(basename "$cfg" .yaml)"
-  note "  RELAUNCH $tag on $node (gpus/node=$gpus) $([ -n "$resume_args" ] && echo "(resume from $(basename "$rundir"))" || echo "(fresh — no ckpt)")$([ -n "$extra" ] && echo " [+overrides: $extra]")"
+  local ck_src=""; [ -n "$ck" ] && ck_src="$(basename "$(dirname "$(dirname "$ck")")")"
+  note "  RELAUNCH $tag on $node (gpus/node=$gpus) $([ -n "$resume_args" ] && echo "(resume from $ck_src$([ "$ck_src" != "$(basename "$rundir")" ] && echo " — earlier lineage segment, not $(basename "$rundir")"))" || echo "(fresh — no ckpt found anywhere in lineage)")$([ -n "$extra" ] && echo " [+overrides: $extra]")"
   TS2TS_SHARED_COMPILE_CACHE="/tmp/ts2ts_relaunch_$(basename "$rundir")" \
     "$REPO/.venv/bin/python" "$REPO/launch_slurm.py" --nodes 1 --gpus-per-node "$gpus" \
     --nodelist "$node" --config "$cfg" --time 96:00:00 --no-tail $resume_args $extra \
@@ -335,13 +396,22 @@ prev_had_net=0   # was there unmet net demand on the PREVIOUS poll? (persistence
 while true; do
   now="$(date +%s)"
   snapshot="$(squeue -h -o '%u|%T|%r|%D|%i|%j|%M' 2>/dev/null)"
-  idle_nodes="$(sinfo -h -t idle -o '%n' -p compute 2>/dev/null | grep -vE 'GPU-749' | tr '\n' ' ')"
+  idle_nodes="$(sinfo -h -t idle -o '%n' -p compute 2>/dev/null | grep -vE 'GPU-749|GPU-495' | tr '\n' ' ')"
   idle="$(echo "$idle_nodes" | wc -w)"
 
   # ---- YIELD (kill) logic ----
   to_kill="$(printf '%s\n' "$snapshot" | decide_cancellations "$ME" "$PREFIX" "$MAX_KILL" "$idle" 2>/dev/null)"
   summary="$(printf '%s\n' "$snapshot" | decide_cancellations "$ME" "$PREFIX" "$MAX_KILL" "$idle" 2>&1 >/dev/null | grep '^SUMMARY:')"
+  # "Someone is waiting" is judged from the DEMAND, not from whether we still have jobs
+  # to kill: once every sweep job is gone, to_kill is empty while a blocked waiter still
+  # pends, and relaunching then only hands it a node to take back 4 minutes later
+  # (~25 relaunch->kill cycles overnight 2026-09-04/05 against one pending 8-node job,
+  # zero training progress). Any unmet net demand blocks relaunch.
   someone_waiting=0; [ -n "$to_kill" ] && someone_waiting=1
+  if printf '%s' "$summary" | grep -qE 'net [1-9][0-9]* node\(s\) (needed|demanded)' \
+     && ! printf '%s' "$summary" | grep -q 'no action'; then
+    someone_waiting=1
+  fi
   if [ -n "$to_kill" ]; then
     if [ "$prev_had_net" -eq 1 ]; then
       note "$summary"
