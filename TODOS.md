@@ -457,6 +457,32 @@ bottleneck.
 
 ## Eval
 
+### RepoBench cannot compare mask types; the compute-control table rests on it (filed 2026-09-21)
+`run_repobench` scores every model under `mask_type='doc_causal'`
+(`eval/scoring.py:599`), which is correct for what it is — the flat single-doc baseline.
+The problem is that the paper's compute-control table reads four `compute.repobench_ppl.*`
+values across four training masks as if that benchmark could discriminate them. It cannot:
+the cross-doc mechanism is switched off at scoring time, so the comparison measures four
+checkpoints on an identical flat task. Re-running the four under isolated eval run dirs
+collapses them from 7.25 / 8.94 / 8.76 / 10.4 to roughly 5.9 with overlapping intervals.
+`check_grounding.py` does not catch this, because the ledger's `expected:` still holds the
+old values.
+
+The mask-aware path already exists as `run_repobench_cross_doc`, which packs the cross-file
+snippets as real aux DocSpans instead of concatenating them as text. It refuses any model
+whose `mask_type` is not `cross_doc_link` (`eval/nlp_benchmarks.py:1043`). Making RepoBench
+able to compare masks means relaxing that gate so the packed layout is scored with each
+model's own mask, which needs a decision about what a `doc_causal` model does for
+`link_detector` (it has none) and whether the aux spans stay in the same order. That is the
+only version of this benchmark that can support a four-way compute control.
+
+Until it exists, the paper should either drop the four-way compute-control claim or
+re-ground it on the within-`cross_doc_link` `repobench_cross_doc` delta, which reproduced
+exactly: Java 1.383 cross vs 1.448 flat, Python 1.700 vs 1.792. That is an inference-time
+claim rather than a compute control, and it agrees with the sparsity result that the link
+benefit is overwhelmingly an inference-time effect.
+
+
 ### Per-run eval metrics (ReproducibilityManager) linked to their training run + re-run ALL eval numbers (filed 2026-08-28)
 Eval results are currently written as sidecar `eval_*.json` INTO the *training* run dir
 and layered by `distill_runs` (`eval_reeval256.json`, `eval_java_repobench_final.json`,
