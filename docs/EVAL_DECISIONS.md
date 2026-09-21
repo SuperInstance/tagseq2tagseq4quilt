@@ -56,6 +56,18 @@ edges.** A learned detector is needed only where links are not known ahead of ti
 means benchmarks and generation. That detector was designed and never built, which is why
 native corpus-fetching generation is still unmeasured.
 
+**A randomized-order concat control was considered and rejected on the merits.** The
+proposal was to randomize document order in the concat arm, so that targets-first packing
+could not let the concat control absorb the effect. It does not work here: randomizing
+breaks the topological order, and under this system causality shapes which grants fire, so
+documents falling off the topo order stop firing links entirely. The control would then be
+confounded by a lower grant fire-rate rather than isolating packing order. A reviewer is
+likely to ask for exactly this control, and this is the answer. The consequence is that
+packing distance is stated as a plain limitation rather than tested: targets-first keeps
+distances short and correlated, so the prediction that the advantage grows with distance is
+not cleanly testable here. It is applied identically to the cross-doc and both concat arms,
+so it cancels in the contrast and is not a confound.
+
 **No auxiliary structure loss.** Training and inference use the same mask under plain
 next-token prediction. The argument is made in prose rather than by running an
 auxiliary-loss arm.
