@@ -1,7 +1,13 @@
-# JAVA SWEEP — doc_causal — isolated baseline.
-# Recipe: wiki-tuned (muon_lr=0.003, muon_wd=0.1, adamw_lr=3e-5, VE-off).
-# Chinchilla: java corpus is below the ~3.9B target, so 7 epoch_dirs (seed+i reshuffle)
-# give >=120k packs to cover max_optimizer_steps=15000 @ world=8 (~3.9B tok).
+# LR SWEEP 2/3 — java doc_causal, e16 repeat schedule, isolating whether the
+# fixed muon_lr=0.003 is still right for a schedule this long. Diagnosis: e8's
+# cooldown improves immediately at cooldown-start; e12/e16's cooldown doesn't
+# start improving until ~4-5k steps after cooldown begins, leaving both worse
+# than e8 despite far more total steps. Same epoch_dirs/max_optimizer_steps as
+# the real java.dc.repeat.e16 arm (full-length, not a shortened check — the
+# effect under test is tied to stable-phase LENGTH, so truncating would defeat
+# the point). Pick the winner from the periodic val_loss_mean trajectory (cheap,
+# already logged every 250 steps) rather than a separate probe on all three.
+# Generated from configs/java_sweep/java_veoff_dc.yaml.
 data:
   dataset_dir: /fss-data/evin_t/tagseq2tagseq_artifacts/pretokenized_datasets/java
   strategy: 'bfs'
@@ -10,7 +16,7 @@ data:
   order_mode: 'prefer_targets_first'
   doc_budget: null
   train_dir:   /fss-data/evin_t/tagseq2tagseq_artifacts/pretokenized_datasets/java/splits/train
-  epoch_dirs:  [/fss-data/evin_t/tagseq2tagseq_artifacts/schedules/java_bfs/epoch_0,/fss-data/evin_t/tagseq2tagseq_artifacts/schedules/java_bfs/epoch_1,/fss-data/evin_t/tagseq2tagseq_artifacts/schedules/java_bfs/epoch_2,/fss-data/evin_t/tagseq2tagseq_artifacts/schedules/java_bfs/epoch_3,/fss-data/evin_t/tagseq2tagseq_artifacts/schedules/java_bfs/epoch_4,/fss-data/evin_t/tagseq2tagseq_artifacts/schedules/java_bfs/epoch_5,/fss-data/evin_t/tagseq2tagseq_artifacts/schedules/java_bfs/epoch_6]
+  epoch_dirs:  [/fss-data/evin_t/tagseq2tagseq_artifacts/schedules/java_bfs/epoch_0,/fss-data/evin_t/tagseq2tagseq_artifacts/schedules/java_bfs/epoch_0,/fss-data/evin_t/tagseq2tagseq_artifacts/schedules/java_bfs/epoch_0,/fss-data/evin_t/tagseq2tagseq_artifacts/schedules/java_bfs/epoch_0,/fss-data/evin_t/tagseq2tagseq_artifacts/schedules/java_bfs/epoch_0,/fss-data/evin_t/tagseq2tagseq_artifacts/schedules/java_bfs/epoch_0,/fss-data/evin_t/tagseq2tagseq_artifacts/schedules/java_bfs/epoch_0,/fss-data/evin_t/tagseq2tagseq_artifacts/schedules/java_bfs/epoch_0,/fss-data/evin_t/tagseq2tagseq_artifacts/schedules/java_bfs/epoch_0,/fss-data/evin_t/tagseq2tagseq_artifacts/schedules/java_bfs/epoch_0,/fss-data/evin_t/tagseq2tagseq_artifacts/schedules/java_bfs/epoch_0,/fss-data/evin_t/tagseq2tagseq_artifacts/schedules/java_bfs/epoch_0,/fss-data/evin_t/tagseq2tagseq_artifacts/schedules/java_bfs/epoch_0,/fss-data/evin_t/tagseq2tagseq_artifacts/schedules/java_bfs/epoch_0,/fss-data/evin_t/tagseq2tagseq_artifacts/schedules/java_bfs/epoch_0,/fss-data/evin_t/tagseq2tagseq_artifacts/schedules/java_bfs/epoch_0]
   val_dirs:
     val_community: /fss-data/evin_t/tagseq2tagseq_artifacts/pretokenized_datasets/java/splits/val_community
     val_random:    /fss-data/evin_t/tagseq2tagseq_artifacts/pretokenized_datasets/java/splits/val_random
@@ -56,7 +62,7 @@ optimizer:
 
 train_loop:
   epochs: 1
-  max_optimizer_steps: null  # auto-derive from epoch_dirs (was 15000; schedule capacity varies, hard cap could exceed it)
+  max_optimizer_steps: 33792
   warmup_percent: 0.02
   cooldown_frac: 0.4
   min_lr_ratio: 0.1
@@ -70,22 +76,10 @@ train_loop:
 seed: 42
 
 eval:
-  run_on_completion: true
+  run_on_completion: false
   benchmarks:
     - {name: held_out_perplexity,       conditions: [doceval]}
-    # community_pack_perplexity [baseline, experimental] is the HEADLINE cross-doc
-    # metric for java: scores identical held-out import-graph neighborhoods with the
-    # model's own mask vs doc_causal. Language-agnostic analog of repobench_cross_doc
-    # (which is Python-hardcoded and cannot run on a java link_detector).
     - {name: community_pack_perplexity, conditions: [doceval]}
-    # single-doc code-quality (HumanEvalPack has java); measures code quality, not cross-doc.
     - {name: humaneval_buggy,           conditions: [doceval], language: java}
   max_docs: 500
   link_fuzzy_match: false
-
-# --- Smoke-test overrides (pass on CLI, don't edit here) ---
-# --model.model_dim 256 --model.num_layers 4 --model.num_heads 4
-# --model.max_seq_len 2048
-# --model.mtp_extra_weights '[]' --model.ve_layers '[]'
-# --train_loop.max_optimizer_steps 5 --train_loop.val_steps 2 --train_loop.val_interval 3
-# --eval.max_docs 20

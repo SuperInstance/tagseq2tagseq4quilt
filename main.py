@@ -79,9 +79,12 @@ class LRCooldownScheduler:
             (not adjusted for resume — use the *original* schedule total).
         start_step: Step number at which this training run begins.  0 for a fresh
             run; ``resumed_steps`` when resuming from a checkpoint.
-        warmup_steps: Number of steps to linearly ramp LR from 0 to 1×.  Applied
-            at the start of the *full* run (absolute step numbers), so a resumed
-            run that starts after warmup_steps simply skips the warmup.
+        warmup_percent: Fraction of total_steps to linearly ramp LR from 0 to 1×.
+            Computed against the *full* run (absolute step numbers), so a resumed
+            run that starts after the resulting warmup step count simply skips
+            the warmup. A fixed absolute step count is NOT supported — it silently
+            drifts out of proportion as schedule length changes (300 steps was a
+            reasonable fraction at one length and negligible at another).
         cooldown_frac: Fraction of total_steps over which to decay the LR.
             E.g. 0.4 starts cooldown at step int(total_steps * 0.6).
         min_lr_ratio: Final LR as a fraction of the base LR.  0.1 means the LR
@@ -101,7 +104,7 @@ class LRCooldownScheduler:
         optimizer,
         total_steps: int,
         start_step: int = 0,
-        warmup_steps: int = 0,
+        warmup_percent: float = 0.0,
         cooldown_frac: float = 0.4,
         min_lr_ratio: float = 0.1,
         muon_momentum_warmup_steps: int = 0,
@@ -111,7 +114,10 @@ class LRCooldownScheduler:
     ):
         self.optimizer = optimizer
         self.total_steps = total_steps
-        self.warmup_steps = warmup_steps
+        # Mirrors cooldown_frac below: a fraction of total_steps, computed here
+        # rather than by the caller, so it can never silently drift out of
+        # proportion when total_steps changes (see warmup_percent docstring).
+        self.warmup_steps = round(warmup_percent * total_steps)
         self.cooldown_start = int(total_steps * (1.0 - cooldown_frac))
         self.min_lr_ratio = min_lr_ratio
         self._step_count = start_step
@@ -1186,16 +1192,23 @@ def main(cfg: Dict[str, Any], dist: DistributedManager, rep: ReproducibilityMana
     cooldown_frac = cfg.get('train_loop', {}).get('cooldown_frac', 0.0)
     min_lr_ratio = cfg.get('train_loop', {}).get('min_lr_ratio', 0.1)
     max_steps_for_cooldown = cfg.get('train_loop', {}).get('max_optimizer_steps')
-    # Warmup: prefer warmup_percent (scales with run length so warmup is CONSTANT in
-    # fraction-of-run across scaling rungs) over absolute warmup_steps. Absolute steps
-    # silently drift — 300 steps was 2.0% at 3.9B but only 0.5% at 16B. Applied to the
-    # FULL schedule length (absolute step numbers), so a resumed run skips elapsed warmup.
-    _warmup_pct = cfg.get('train_loop', {}).get('warmup_percent')
-    if _warmup_pct is not None:
-        _full_len = (max_steps_for_cooldown or 0) + resumed_steps
-        warmup_steps = round(float(_warmup_pct) * _full_len)
-    else:
-        warmup_steps = int(cfg.get('train_loop', {}).get('warmup_steps', 0))
+    # Warmup is ALWAYS a fraction of the full schedule (mirrors cooldown_frac) —
+    # there is no absolute-step-count option. A fixed step count silently drifts
+    # out of proportion as schedule length changes across a sweep (e.g. 300 steps
+    # was ~7% of a short arm and <1% of a long one) — see LRCooldownScheduler's
+    # warmup_percent docstring. `train_loop.warmup_steps` is not read; set
+    # `train_loop.warmup_percent` instead.
+    _tl = cfg.get('train_loop', {})
+    if 'warmup_steps' in _tl and 'warmup_percent' not in _tl:
+        raise ValueError(
+            "train_loop.warmup_steps is no longer read — warmup is always a fraction "
+            "of the full schedule. This config would train with no warmup at all. "
+            "Set train_loop.warmup_percent instead "
+            f"(warmup_steps: {_tl['warmup_steps']} was roughly "
+            f"{float(_tl['warmup_steps']) / max(int(max_steps_for_cooldown or 0), 1):.4f} "
+            "of this schedule)."
+        )
+    warmup_percent = float(cfg.get('train_loop', {}).get('warmup_percent', 0.0))
     muon_momentum_warmup_steps = int(cfg.get('optimizer', {}).get('muon_momentum_warmup_steps', 0))
 
     if cooldown_frac > 0.0 and max_steps_for_cooldown is None:
@@ -1263,7 +1276,7 @@ def main(cfg: Dict[str, Any], dist: DistributedManager, rep: ReproducibilityMana
     # Construct LRCooldownScheduler now that model is in its final form (after
     # DDP wrapping), so split closures can reference model.module correctly.
     needs_scheduler = (
-        warmup_steps > 0
+        warmup_percent > 0.0
         or cooldown_frac > 0.0
         or muon_momentum_warmup_steps > 0
         or untie_at_frac is not None
@@ -1356,7 +1369,7 @@ def main(cfg: Dict[str, Any], dist: DistributedManager, rep: ReproducibilityMana
             optimizer,
             total_steps=total_steps_original,
             start_step=resumed_steps,
-            warmup_steps=warmup_steps,
+            warmup_percent=warmup_percent,
             cooldown_frac=cooldown_frac,
             min_lr_ratio=min_lr_ratio,
             muon_momentum_warmup_steps=muon_momentum_warmup_steps,
@@ -1365,12 +1378,12 @@ def main(cfg: Dict[str, Any], dist: DistributedManager, rep: ReproducibilityMana
             split_fn=split_fn,
         )
         logger.info(
-            "Training scheduler: warmup_steps=%d, cooldown_frac=%.2f, min_lr_ratio=%.2f, "
-            "total_steps=%d, cooldown_starts_at_step=%d; "
+            "Training scheduler: warmup_percent=%.4f (=%d steps), cooldown_frac=%.2f, "
+            "min_lr_ratio=%.2f, total_steps=%d, cooldown_starts_at_step=%d; "
             "muon_momentum_warmup_steps=%d; "
             "untie_at_frac=%s (split_step=%d); "
             "(resumed_steps=%d).",
-            warmup_steps, cooldown_frac, min_lr_ratio,
+            warmup_percent, optimizer.warmup_steps, cooldown_frac, min_lr_ratio,
             total_steps_original, optimizer.cooldown_start,
             muon_momentum_warmup_steps,
             f"{untie_at_frac:.3f}" if untie_at_frac is not None else "None", split_step,

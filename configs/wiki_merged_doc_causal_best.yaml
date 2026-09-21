@@ -60,7 +60,7 @@ optimizer:
 train_loop:
   epochs: 1
   max_optimizer_steps: null  # PINNED per-arm by the launch driver (enables cooldown+untie)
-  warmup_steps: 300
+  warmup_percent: 0.02
   cooldown_frac: 0.4
   min_lr_ratio: 0.1
   val_steps: 20

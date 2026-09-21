@@ -1,0 +1,19 @@
+{
+  "_comment": "Run-dir manifest for eval/viz/plot_epochs_to_degradation.py. Each entry points at a run dir containing checkpoints/best_model.pt and a memorization_gap_eos_best.json (from `python -m eval.memorization --checkpoint .../best_model.pt --mode gap --max-docs 9000 --layout-policy eos`). best_model.pt, not latest.pt, is load-bearing here -- training val loss is noisy checkpoint-to-checkpoint, so latest.pt can land on an arbitrary uptick. Corrected-warmup arms only (warmup_percent, not the old fixed warmup_steps=300). Add the e16 row for cross_doc_link once that arm finishes training and its gap probe has been run.",
+  "doc_causal": {
+    "2": "run_20260904_104928_241150",
+    "4": "run_20260904_105146_844156",
+    "6": "run_20260905_063535_503909",
+    "8": "run_20260907_201237_966002",
+    "12": "run_20260907_201234_445738",
+    "16": "run_20260907_201246_402794"
+  },
+  "cross_doc_link": {
+    "2": "run_20260903_182818_649889",
+    "4": "run_20260903_182813_840325",
+    "6": "run_20260904_105151_599132",
+    "8": "run_20260908_234344_337435",
+    "12": "run_20260908_234907_475056",
+    "16": null
+  }
+}

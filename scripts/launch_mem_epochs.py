@@ -29,7 +29,7 @@ import sys
 import time
 from pathlib import Path
 
-REPO = Path("/fss/evin_t/tagseq2tagseq")
+REPO = Path(__file__).resolve().parents[1]  # self-locating: this repo (isolated worktree or shared)
 ART = Path("/fss-data/evin_t/tagseq2tagseq_artifacts")
 SCHED = ART / "schedules"
 
@@ -46,6 +46,16 @@ CONFIGS = {
         "cdl":    "configs/go_sweep/go_veoff_cdl.yaml",
         "dcl":    "configs/go_sweep/go_veoff_concatlink.yaml",
         "concat": "configs/go_sweep/go_veoff_concat.yaml",
+    },
+    "java": {
+        # java's import graph measures out-degree 1.78-3.79 vs go's 1.08 (see
+        # docs/multilang_code_datasets_DESIGN.md) — denser substrate for the
+        # cross_doc_link neighbor-resampling hypothesis. Only epoch_0..6 precomputed
+        # so far (go/wiki_merged have 0..15); --epochs above 7 needs more precompute.
+        "dc":     "configs/java_sweep/java_veoff_dc.yaml",
+        "cdl":    "configs/java_sweep/java_veoff_cdl.yaml",
+        "dcl":    "configs/java_sweep/java_veoff_concatlink.yaml",
+        "concat": "configs/java_sweep/java_veoff_concat.yaml",
     },
     "simplewiki": {
         "dc":     "configs/wiki_merged_doc_causal_best.yaml",   # base recipe; dirs overridden below
@@ -114,7 +124,7 @@ def build_command(corpus, mask, mode, n, dirs, max_steps, nodes, gpus, time_limi
     cfg = CONFIGS[corpus][mask]
     epoch_csv = ",".join(str(d) for d in dirs)
     cmd = [
-        "python", "launch_slurm.py",
+        str(REPO / ".venv/bin/python"), str(REPO / "launch_slurm.py"),
         "--nodes", str(nodes), "--gpus-per-node", str(gpus),
         "--time", time_limit,
         "--config", cfg,
@@ -153,7 +163,7 @@ def build_command(corpus, mask, mode, n, dirs, max_steps, nodes, gpus, time_limi
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--corpus", nargs="+", default=["wiki_merged", "go"],
-                    choices=["wiki_merged", "go", "simplewiki"])
+                    choices=["wiki_merged", "go", "simplewiki", "java"])
     ap.add_argument("--masks", nargs="+", default=["dc", "cdl", "dcl", "concat"],
                     choices=["dc", "cdl", "dcl", "concat"])
     ap.add_argument("--modes", nargs="+", default=["fresh", "repeat"],
