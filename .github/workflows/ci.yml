@@ -18,7 +18,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install test deps
         run: pip install pytest
-      - name: Quilt fabric tests
-        run: python -m pytest tests/quilt_fabric/ -q
+      - name: Quilt fabric tests (stdlib-only, no torch tax)
+        run: python -m pytest tests/quilt_fabric/ -q --noconftest
       - name: Demo smoke (with tamper drill)
         run: python demo_quilt_fabric.py --check
