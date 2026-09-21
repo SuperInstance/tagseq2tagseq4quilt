@@ -187,12 +187,50 @@ Recovered reasoning from the unopenable sessions is in `docs/EVAL_DECISIONS.md`.
 
 ## 7. Housekeeping
 
-- The in-repo `runs/` directory is 2.5 TB and nothing has been written to it since the move
-  to the fss-data runs root. Largest reclaim target by far.
+### The in-repo runs directory is not a duplicate
+
+`runs/` in the main checkout holds 2.70 TB across 808 checkpoint files in 583 runs. The
+move to the fss-data runs root did happen: nothing in-repo is newer than 2026-08-13 and
+all current runs land on fss-data. But **634 of the 635 in-repo run directories exist
+nowhere else**. This is the only copy, not leftover duplication, so deleting the directory
+wholesale destroys data.
+
+**All 22 run ids cited by `provenance/ledger.yaml` are repo-only**, totalling about
+150 GB. They must be kept. Among them are the matched pair that the link-injection
+evaluation scores against.
+
+The safe reclaim is different. Every run stores both `best_model.pt` and `latest.pt`, and
+373 runs have both. Best-checkpoint selection ran on a validation metric that was itself
+buggy, which is why evaluation standardised on the fully cooled `latest.pt`. So
+`best_model.pt` is dead weight wherever `latest.pt` exists. Dropping it everywhere except
+the 22 ledger runs reclaims **1.31 TB** and costs nothing that is used. Keep both copies
+for the ledger runs, where the extra cost is 85 GB.
+
+Note for that operation: 48 runs have only `best_model.pt` and no `latest.pt`. Do not
+touch those, or they lose their only checkpoint.
+
+The distilled records in `provenance/runs/` cover 656 runs, so run *metadata* survives
+independently of the checkpoints. What deletion costs is the ability to re-run an eval,
+not the provenance trail.
+
+### Other
+
 - `data/github_graph_extractor/sample_{1M,10M,100M}.jsonl` is 131 GB, and those committed
   graph keys predate the normalization refactor, so they may be stale as well as large.
-- Recreatable caches: 7.6 GB under `-evaltrack`, 5.9 GB under `-memexp`.
+- Recreatable caches of a few GB each under `-evaltrack` and `-memexp`.
+- The other four worktrees hold no run output worth reclaiming; `-sparsity` and
+  `-evaltrack` have empty or absent runs directories.
 - `aws_keys_scratch.txt` sits in the home directory. Worth rotating or deleting.
+- Neither filesystem is near capacity, so this is hygiene rather than an emergency.
+
+### Branches
+
+Not cleaned up. Four merged branches are held open only by their worktrees
+(`eval-run-tracking`, `link-injection-eval`, `memexp-isolated`, `sparsity-scaling-law`);
+removing a worktree frees its branch for a safe delete, but `-memexp` is live and must stay.
+Eight branches are not ancestors of main (`run-provenance-artifacts` and seven
+`worktree-agent-*`), each carrying one commit whose content reached main by another route,
+so they need a force delete rather than a safe one.
 
 ---
 
